@@ -59,10 +59,6 @@ With the imported ground motion, `gm`, and the assumed value of $k_y$, we can pe
 This simultaneously creates an instance of `RigidAnalysis` and performs the analysis, which is stored as `result`.
 The inputs for `RigidAnalysis` are the input acceleration signal, time step, and the yield acceleration.
 
-```{note}
-A note admonition! Not for anyting in particular, though...
-```
-
 ```{python}
 ky = 0.2 # yield acceleration in g
 result = slam.RigidAnalysis(ky, gm.accel, gm.dt)
