@@ -57,11 +57,11 @@ The timestep and acceleration signal for the imported ground motion are `gm.dt` 
 ### Perform a rigid sliding block analysis
 With the imported ground motion, `gm`, and the assumed value of $k_y$, we can perform a rigid sliding block analysis with pySLAMMER's `RigidAnalysis` object. 
 This simultaneously creates an instance of `RigidAnalysis` and performs the analysis, which is stored as `result`.
-The inputs for `RigidAnalysis` are the input acceleration signal, time step, and the yield acceleration.
+The inputs for `RigidAnalysis` are the yield acceleration and the ground motion object.
 
 ```{python}
 ky = 0.2 # yield acceleration in g
-result = slam.RigidAnalysis(ky, gm.accel, gm.dt)
+result = slam.RigidAnalysis(ky, gm)
 ```
 
 ### View results

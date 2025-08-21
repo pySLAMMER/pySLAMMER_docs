@@ -35,7 +35,7 @@ The code below evaluates all combinations of $k_y$ contained in `kys` and every 
 run = 0
 for ky in kys:
     for motion, hist in histories.items():
-        result = slam.RigidAnalysis(ky,histories[motion].accel, histories[motion].dt,target_pga=0.3)
+        result = slam.RigidAnalysis(ky, histories[motion], target_pga=0.3)
         output[run] = {"motion":motion, "ky":ky, "k_max":np.max(result.a_in), "d_max": result.max_sliding_disp, "dt":result.dt, "disp": result
         .sliding_disp}
         run += 1

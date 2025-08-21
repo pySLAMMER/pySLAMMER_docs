@@ -14,7 +14,6 @@ import matplotlib.pyplot as plt
 import pyslammer as slam
 import scipy.stats.mstats as ssmstat
 from cycler import cycler
-from tests.verification_processes import import_verification_data
 from great_tables import GT, md, html
 plt.style.use(slam.psfigstyle)
 ```
@@ -34,9 +33,10 @@ We used the motions from pySLAMMER's built-in sample ground motion suite at seve
 #| label: fig-resp
 #| fig-align: center
 #| fig-cap: "Acceleration response spectra for input ground motions"
+
 # Navigate to ground motion suite response spectra files
 current_dir = os.getcwd()
-folder_path = Path(current_dir).resolve().parents[1] / "tests" / "pySLAMMER_suite_resp"
+folder_path = Path(current_dir).resolve().parents[1] / "verification_files" / "pySLAMMER_suite_response_spectra"
 csv_files = list(folder_path.glob("*.csv"))
 
 # Read each CSV file into a DataFrame and store them in a list
@@ -103,13 +103,17 @@ Dynamic Response
 
 ### Analysis options
 
-SLAMMER allows users to include a constant $k_y$ value or a variable $k_y$ that changes with accumulated sliding displacement. The $k_y$ -- displacement relationship is stepwise with a table of paired values. This feature provides a rough means of approximating post-peak residual strength. ^[pySLAMMER includes additional options for variable yield acceleration, but only stepwise variation is applicable to comparison with SLAMMER]
+SLAMMER allows users to include a constant $k_y$ value or a variable $k_y$ that changes with accumulated sliding displacement. The $k_y$ -- displacement relationship is stepwise with a table of paired values. This feature provides a rough means of approximating post-peak residual strength. [^1]
+
+[^1]: pySLAMMER includes additional options for variable yield acceleration, but only stepwise variation is applicable to comparison with SLAMMER
 
 The dynamic response of the system (applicable to decoupled and coupled analyses) is calculated using either *linear elastic* or *equivalent linear* assumptions. The minimum input parameters needed for the linear elastic analyses are a damping ration, the slope height, and the shear wave velocity of the material above and below the slip surface. For equivalent linear analysis, a reference strain parameter is also needed. Although not explicitly documented, inspection of the SLAMMER source code uses Darendeli (2001) modulus reduction and damping curves with a curvature coefficient of 1.
 
-Separate entries for the shear wave velocity of the material above and below the slip surface ($V_s$ and $V_b$, respectively) are used to introduce an equivalent foundation radiation damping into the viscous material damping as described by @lee2004. This happens behind the scenes in SLAMMER by default and cannot be turned off. ^[If lower total damping than the equivalent foundation radiation damping is needed for some reason (e.g., for comparison with published analyses that did not include this damping mechanism) both SLAMMER and pySLAMMER accept negative values for damping ratio, which can be used to offset the damping applied by the foundation radiation damping.]
+Separate entries for the shear wave velocity of the material above and below the slip surface ($V_s$ and $V_b$, respectively) are used to introduce an equivalent foundation radiation damping into the viscous material damping as described by @lee2004. This happens behind the scenes in SLAMMER by default and cannot be turned off. [^2]
 
-@tbl-params shows the analysis options and ranges of input values used in the group of simulations used to compare pySLAMMER to 
+[^2]: If lower total damping than the equivalent foundation radiation damping is needed for some reason (e.g., for comparison with published analyses that did not include this damping mechanism) both SLAMMER and pySLAMMER accept negative values for damping ratio, which can be used to offset the damping applied by the foundation radiation damping.
+
+@tbl-params shows the analysis options and ranges of input values used in the group of simulations used to compare pySLAMMER to
 
 ```{python}
 #| code-fold: true
@@ -167,134 +171,166 @@ tbl
 
 ## Results
 
-The results of the simulations across the parametric space described in @tbl-params show excellent agreement between pySLAMMER and SLAMMER.
-When viewed at a linear scale, the results seem to show complete agreement (see @fig-linear).
-However, due to minor numerical differences and orders of operations between the two codes, some non-zero numerical differences should be expected.
+Although the Python code in pySLAMMER essentially uses the same algorithms as the Java code in SLAMMER, some non-zero differences in results should be expected due to minor numerical differences (e.g., number type handling, order of operations) [@ince2012]. However, the results can be considered functionally equivalent if they contain no apparent tendency to diverge and the differences are relatively small. For engineering purposes, sliding block displacements below 0.5 cm can be considered equivalent to zero displacement [@bray2019]. The results of the simulations across the parametric space described in @tbl-params are shown on @fig-comp. The data are plotted on a log-log scale to make minor numerical differences visible near and below the "equivalent zero" displacement threshold. As indicated by the linear regression, the differences between SLAMMER and pySLAMMER results are negligibly small relative to the scales of engineering significance.
 
 ```{python}
 #| code-fold: true
-#| label: fig-linear
+#| label: fig-comp
 #| fig-align: center
-#| fig-cap: "Linear scale comparison of pySLAMMER and SLAMMER analysis results. At this scale, the differences are too small to be distinguished visually."
+#| fig-cap: "Comparison of pySLAMMER and SLAMMER analysis results. At this scale, the differences are too small to be distinguished visually."
 
-# Navigate to ground motion suite response spectra files
-current_dir = os.getcwd()
-data_path = Path(current_dir).resolve().parents[1] / "tests" / "SLAMMER_results.xlsx"
+# Load SLAMMER and pySLAMMER results from verification data
+import json
+import gzip
+from matplotlib.patches import FancyArrowPatch
 
-df = import_verification_data(data_path)
-df["kykmax"] = df["ky (g)"] / df["kmax (g)"]
+# Load SLAMMER results
+with gzip.open('../../verification_files/verification_data/results/slammer_results.json.gz', 'rt') as f:
+    slammer_data = json.load(f)
 
-dfp = df[df["kykmax"] < 1.0]
+# Load pySLAMMER results (using latest version)
+with gzip.open('../../verification_files/verification_data/results/pyslammer_0.2.3_results.json.gz', 'rt') as f:
+    pyslammer_data = json.load(f)
 
+# Create comparison dataframe
+comparison_data = []
+
+# Create lookup for pySLAMMER results by analysis_id
+pyslammer_lookup = {analysis['analysis_id']: analysis for analysis in pyslammer_data['analyses']}
+
+for slammer_analysis in slammer_data['analyses']:
+    analysis_id = slammer_analysis['analysis_id']
+    
+    if analysis_id in pyslammer_lookup:
+        pyslammer_analysis = pyslammer_lookup[analysis_id]
+        
+        # Get method name and convert to title case
+        method = slammer_analysis['analysis']['method']
+        method_name = method.title() if method != 'rigid' else 'Rigid'
+        
+        comparison_data.append({
+            'analysis_id': analysis_id,
+            'Method': method_name,
+            'SLAMMER': slammer_analysis['results']['normal_displacement_cm'],
+            'pySLAMMER': pyslammer_analysis['results']['normal_displacement_cm']
+        })
+
+# Create dataframe
+dfp = pd.DataFrame(comparison_data)
+
+# Calculate overall linear regression for statistics display
+from scipy.stats import linregress
+slope, intercept, r, p, se = linregress(dfp['SLAMMER'], dfp['pySLAMMER'])
+
+
+plt.close("all")
 ############
 # pySLAMMER v. SLAMMER
 ############
+plt.rcParams["font.family"] = "Arial"
+plt.rcParams["font.sans-serif"] = ["Arial"]
+plt.rcParams["savefig.dpi"] = 600
+
 fig, ax = plt.subplots()
-cmap = plt.cm.viridis  
-
-# Match color values to kykmax values
-color_values = dfp["kykmax"] 
-
-# Scatter plot with color mapping
-scatter = ax.scatter(
-    dfp["SLAMMER"],  # x-axis values
-    dfp["pySLAMMER"],  # y-axis values
-    c=color_values,  # Numeric values for coloring
-    cmap=cmap,  # Colormap
-    alpha=0.5,  # Transparency
-    marker=".",
-)
-
-# Add colorbar
-cbar = plt.colorbar(scatter, ax=ax, alpha=1)
-cbar.set_label("Yield Ratio ($k_y/k_{max}$)")  # Label for the colorbar
 
 
-ax.set_xlim(0, 1000)
-ax.set_ylim(0, 1000)
 
-plt.grid()
+keys = ["Decoupled", "Rigid", "Coupled"]
+markers = ["^", "P", "o"]
 
-ax.set_xlabel("SLAMMER displacement (cm)")
-ax.set_ylabel("pySLAMMER displacement (cm)")
-plt.show()
-```
-Viewed on a log-log scale, the numerical differences become become visible for analyses with sub-centimeter sliding displacements (@fig-loglog).
-In practice, sub-centimeter sliding block displacements are not typically considered significant and the error magnitudes present at this scale are beyond the level of precision that sliding block results are interpreted at.
 
-```{python}
-#| code-fold: true
-#| label: fig-loglog
-#| fig-align: center
-#| fig-cap: "Log-log scale comparison of pySLAMMER and SLAMMER analysis results. At this scale, the small differences become visible. Nevertheless, the match between the two is excellent in the range of engineering interest."
+for i, key in enumerate(keys):
+    grp = dfp[dfp["Method"] == key]
+    ax.scatter(grp["SLAMMER"], 
+               grp["pySLAMMER"], 
+               label=key, 
+               alpha=0.35,
+               marker=markers[i],
+               s=20
+               )
+
+
 ax.set_xscale("log")
 ax.set_yscale("log")
 ax.set_xlim(1e-3, 1e3)
 ax.set_ylim(1e-3, 1e3)
 
-fig
-```
-The numerical error magnitudes that are visibile in @fig-loglog are quantified in @tbl-comparison, which summarizes the fit of pySLAMMER to SLAMMER sliding block displacement results over different ranges of predicted displacement.
-The linear regression parameters in @tbl-comparison show how well a straigt line fit would match the data set over discrete ranges of predicted displacements.
-Within each displacment range, the 95th percentile error ^[95 percent of all simulations in the range had errors less than this.] is also reported.
-```{python}
-#| code-fold: true
-#| label: tbl-comparison
-#| tbl-cap: Comparison of pySLAMMER-SLAMMER results agreement by order of displacement magnitude.
+ax.set_aspect("equal")
 
-scales = [0.001, 0.01, 0.1, 1, 10, 100 ,1000]
-interest = ["no", "no", "yes", "yes", "yes", "yes"]
-match_quality = ["moderate", "very good", "excellent", "excellent", "excellent", "excellent"]
-comp = {
-    "Range": [],
-    "Engineering\nInterest": [],
-    "Computation\nMatch": [],
-    "error_95": [],
-    "Slope": [],
-    "Intercept": [],
-    "R_sq": []
-}
+plt.grid()
 
-for i in range(len(scales)-1):
-    segment = dfp[
-        (dfp["SLAMMER"] > scales[i])
-        & (dfp["SLAMMER"] < scales[i+1])
-    ]
-    slope, intercept, r, p, se = ssmstat.linregress(
-        segment["SLAMMER"],
-        segment["pySLAMMER"],
-    )
-    comp["Range"].append(f"{scales[i]} to {scales[i+1]}")
-    comp["Engineering\nInterest"].append(interest[i])
-    comp["error_95"].append(f"{np.percentile(
-        abs(segment["pySLAMMER"] - segment["SLAMMER"]),
-        95):.2f}")
-    comp["Slope"].append(f"{slope:.2f}")
-    comp["Intercept"].append(f"{intercept:.2f}")
-    comp["R_sq"].append(f"{r**2:.2f}")
-    comp["Computation\nMatch"].append(match_quality[i])
-    
+ax.set_xlabel("SLAMMER displacement (cm)")
+ax.set_ylabel("pySLAMMER displacement (cm)")
 
-tbl = (
-    GT(pd.DataFrame(comp))
-    .tab_spanner(
-    label="Linear Regression Parameters",
-    columns=["Slope","Intercept","R_sq"]
-    )
-    .cols_label(
-    Range=html("Displacement Range<br>(cm)"),
-    Intercept=html("Intercept<br>(cm)"),
-    R_sq=html("R<sup>2</sup>"),
-    error_95=html("95<sup>th</sup> percentile error<br>(cm)")
+# Linear regression
 
-    )
+ax.plot([1e-3, 1e3], [1e-3, 1e3], color="black", linestyle="--", linewidth=1)
+
+ax.text(
+    0.67,
+    0.585,
+    f"Linear Regression\nSlope = {slope:.2f}\nIntercept = {intercept:.1f} cm\nR$^2$ = {r**2:.3f}",
+    transform=ax.transAxes,
+    fontsize=10,
+    verticalalignment="top",
+    bbox=dict(facecolor="white", alpha=1),
 )
-tbl
-```
 
+# Arrow for linear regression
+arrow = FancyArrowPatch(
+    (0.85, 0.6),  # Start point (near text box)
+    (0.75, 0.75),  # End point (middle of plot, on dashed line)
+    connectionstyle="angle3,angleA=90,angleB=-45",  # Angle connection style
+    transform=ax.transAxes,
+    arrowstyle="->",
+    mutation_scale=11,
+    color="black",
+    alpha=1,
+    zorder=4
+)
+ax.add_patch(arrow)
+
+# Engineering range of interest
+ax.plot([0,0.5,0.5],[0.5,0.5,0], color="black", linestyle="-", linewidth=1)
+
+# Add text box with regression statistics
+ax.text(
+    0.475,
+    0.145,
+    "Engineering \"equivalent zero\"\ndisplacement (0.5 cm)",
+    transform=ax.transAxes,
+    fontsize=10,
+    verticalalignment="top",
+    bbox=dict(facecolor="white", alpha=1),
+)
+
+# Arrow for linear regression
+arrow = FancyArrowPatch(
+    (0.65, 0.155),  # Start point (near text box)
+    (0.45, 0.245),  # End point (middle of plot, on dashed line)
+    connectionstyle="angle3,angleA=90,angleB=-5",  # Angle connection style
+    transform=ax.transAxes,
+    arrowstyle="->",
+    mutation_scale=10,
+    color="black",
+    alpha=1,
+    zorder=4,
+)
+ax.add_patch(arrow)
+
+# Add legend
+ax.legend(
+    loc="upper left",
+    bbox_to_anchor=(0.05, 0.95),
+    fontsize=10,
+    title="Method",
+    title_fontsize="11",
+    framealpha=1,
+)
+
+plt.show()
+```
 
 ## Conclusions
 
-The results show that pySLAMMER is performing the same rigorous analysis methods as SLAMMER.
-Across a broad array of input parameters, the results are identical or nearly identical.
-Minor numerical differences between the output of the two programs is to be expected. However, the differences are so small as to be insignificant for engineering purposes, both in research and practice.
+The results show that pySLAMMER is performing the same rigorous analysis methods as SLAMMER. Across a broad array of input parameters, the results are identical or nearly identical. Minor numerical differences between the output of the two programs is to be expected. However, the differences are so small as to be insignificant for engineering purposes, both in research and practice.

@@ -1,17 +1,22 @@
 [project]
 name = "pyslammer-docs"
 version = "0.1.0"
-description = "Add your description here"
-readme = "README.md"
-requires-python = ">=3.12"
-dependencies = [
-    "pyslammer>=0.2.1",
-    "ipykernel>=6.29.5",
-    "ipympl>=0.9.7",
-    "ipywidgets>=8.1.5",
-    "matplotlib>=3.10.1",
-    "numpy==2.2",
-    "openpyxl>=3.1.5",
-    "pandas>=2.2.3",
-    "scipy",
+description = "Documentation for pySLAMMER"
+authors = [
+    {name = "Lorne Arnold", email = "arnoldl@uw.edu"},
 ]
+dependencies = [
+    "quartodoc>=0.7.0",
+    "pyyaml>=6.0",
+    "jupyter>=1.0.0",
+    "matplotlib>=3.5.0",
+    "numpy>=1.20.0",
+    "pandas>=1.3.0",
+    "pyslammer @ git+https://github.com/pySLAMMER/pySLAMMER.git@uv-setup",
+    "pynewmarkdisp>=0.1.0",
+    "great-tables>=0.18.0",
+]
+requires-python = ">=3.11"
+
+[tool.hatch.metadata]
+allow-direct-references = true

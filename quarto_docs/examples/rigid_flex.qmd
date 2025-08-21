@@ -43,7 +43,7 @@ rigid_result = slam.RigidAnalysis(**rigid_inputs)
 
 Passing the input variables to `slam.RigidAnalysis` as a dictionary isn't necessary, it's just a convenient way to package groups of input variables. The following line would have produced the same result as the previous cell:
 
-`rigid_result = slam.RigidAnalysis(ground_motion, 0.2)`
+`rigid_result = slam.RigidAnalysis(0.2, gm)`
 :::
 
 ## Flexible sliding block analysis
@@ -70,9 +70,9 @@ flexible_inputs = {
 }
 
 decoupled_result = slam.Decoupled(**rigid_inputs,**flexible_inputs)
-decoupled_result._compile_attributes()
+decoupled_result._compile_sliding_attributes()
 coupled_result = slam.Coupled(**rigid_inputs,**flexible_inputs)
-coupled_result._compile_attributes()
+coupled_result._compile_sliding_attributes()
 ```
 
 ## Comparison of analysis methods
