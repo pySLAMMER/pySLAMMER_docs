@@ -15,6 +15,9 @@ dependencies = [
     "pyslammer @ git+https://github.com/pySLAMMER/pySLAMMER.git@uv-setup",
     "pynewmarkdisp>=0.1.0",
     "great-tables>=0.18.0",
+    "openpyxl>=3.1.5",
+    "ipywidgets>=8.1.7",
+    "ipympl>=0.9.7",
 ]
 requires-python = ">=3.11"
 
